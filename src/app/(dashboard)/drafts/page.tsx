@@ -1,4 +1,8 @@
+import { getCurrentSession } from "@/lib/auth/current-session";
 import { getServiceSupabase } from "@/lib/supabase/service";
+import { DraftActions } from "@/components/draft-actions";
+
+const CAN_ACT_ROLES = ["operator", "mapping_reviewer", "administrator"];
 
 const STATUS_LABEL: Record<string, { label: string; bg: string; fg: string }> = {
   pending: { label: "待处理", bg: "var(--accent-soft)", fg: "var(--accent-dark)" },
@@ -8,12 +12,14 @@ const STATUS_LABEL: Record<string, { label: string; bg: string; fg: string }> = 
 };
 
 export default async function DraftsPage() {
+  const session = await getCurrentSession();
+  const canAct = !!session && CAN_ACT_ROLES.includes(session.role);
+
   const supabase = getServiceSupabase();
 
   // Direct filtered read via the service client — this is a plain SELECT with
   // no state-changing effect, so it does not need a dedicated RPC the way
-  // confirm/cancel/alias-approval do. Confirm/cancel actions are not wired up
-  // yet; this page is read-only for now.
+  // confirm/cancel/alias-approval do.
   const { data: drafts, error } = await supabase
     .from("pm_sales_drafts")
     .select(
@@ -50,6 +56,7 @@ export default async function DraftsPage() {
               <th className="px-4 py-3 font-bold">金额</th>
               <th className="px-4 py-3 font-bold">解析状态</th>
               <th className="px-4 py-3 font-bold">创建时间</th>
+              {canAct ? <th className="px-4 py-3 font-bold">操作</th> : null}
             </tr>
           </thead>
           <tbody>
@@ -79,12 +86,19 @@ export default async function DraftsPage() {
                   <td className="px-4 py-3" style={{ color: "var(--ink-soft)" }}>
                     {new Date(d.created_at).toLocaleString("zh-CN")}
                   </td>
+                  {canAct ? (
+                    <td className="px-4 py-3">
+                      {d.confirmation_status === "pending" ? (
+                        <DraftActions draftId={d.id} />
+                      ) : null}
+                    </td>
+                  ) : null}
                 </tr>
               );
             })}
             {(drafts ?? []).length === 0 ? (
               <tr>
-                <td colSpan={7} className="px-4 py-8 text-center" style={{ color: "var(--ink-soft)" }}>
+                <td colSpan={canAct ? 8 : 7} className="px-4 py-8 text-center" style={{ color: "var(--ink-soft)" }}>
                   暂无草稿
                 </td>
               </tr>
@@ -94,7 +108,7 @@ export default async function DraftsPage() {
       </div>
 
       <p className="text-xs" style={{ color: "var(--ink-soft)" }}>
-        这一页目前是只读的——新建/确认/取消草稿的表单还没接上，需要单独设计商品搜索、预览、确认三步流程。
+        待处理草稿可以确认或取消：确认会先预览（不落库），核对未匹配商品数量后再真正下单；取消是软取消，需要填写原因。新建草稿的表单还没接上。
       </p>
     </div>
   );
