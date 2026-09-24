@@ -1,0 +1,17 @@
+[Unit]
+Description=PM Sales Web App (Next.js)
+After=network.target
+
+[Service]
+Type=simple
+User=pmsales
+WorkingDirectory=/home/pmsales/pm-sales-web-app
+EnvironmentFile=/home/pmsales/pm-sales-web-app/.env.local
+ExecStart=/usr/bin/npm run start -- -p 3000
+Restart=on-failure
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
